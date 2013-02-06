@@ -184,6 +184,13 @@ typedef struct VirtioFeatDesc {
     uint8_t index;
 } QEMU_PACKED VirtioFeatDesc;
 
+typedef struct VirtioThinintInfo {
+    hwaddr summary_indicator;
+    hwaddr device_indicator;
+    uint16_t ind_shift;
+    uint8_t isc;
+} QEMU_PACKED VirtioThinintInfo;
+
 /* Specify where the virtqueues for the subchannel are in guest memory. */
 static int virtio_ccw_set_vqs(SubchDev *sch, uint64_t addr, uint32_t align,
                               uint16_t index, uint16_t num)
@@ -232,6 +239,7 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
     bool check_len;
     int len;
     hwaddr hw_len;
+    VirtioThinintInfo *thinint;
 
     if (!dev) {
         return -EINVAL;
@@ -418,6 +426,11 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
             ret = -EINVAL;
             break;
         }
+        if (sch->thinint_active) {
+            /* Trigger a command reject. */
+            ret = -ENOSYS;
+            break;
+        }
         if (!ccw.cda) {
             ret = -EFAULT;
         } else {
@@ -469,6 +482,42 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
             ret = 0;
         }
         break;
+    case CCW_CMD_SET_IND_ADAPTER:
+        if (check_len) {
+            if (ccw.count != sizeof(*thinint)) {
+                ret = -EINVAL;
+                break;
+            }
+        } else if (ccw.count < sizeof(*thinint)) {
+            /* Can't execute command. */
+            ret = -EINVAL;
+            break;
+        }
+        len = sizeof(*thinint);
+        hw_len = len;
+        if (!ccw.cda) {
+            ret = -EFAULT;
+        } else if (dev->indicators && !sch->thinint_active) {
+            /* Trigger a command reject. */
+            ret = -ENOSYS;
+        } else {
+            thinint = cpu_physical_memory_map(ccw.cda, &hw_len, 0);
+            if (!thinint) {
+                ret = -EFAULT;
+            } else {
+                len = hw_len;
+                dev->summary_indicator = thinint->summary_indicator;
+                dev->indicators = thinint->device_indicator;
+                dev->thinint_isc = thinint->isc;
+                dev->ind_shift = thinint->ind_shift;
+                cpu_physical_memory_unmap(thinint, hw_len, 0, hw_len);
+                sch->thinint_active = ((dev->indicators != 0) &&
+                                       (dev->summary_indicator != 0));
+                sch->curr_status.scsw.count = ccw.count - len;
+                ret = 0;
+            }
+        }
+        break;
     default:
         ret = -ENOSYS;
         break;
@@ -501,6 +550,7 @@ static int virtio_ccw_device_init(VirtioCcwDevice *dev, VirtIODevice *vdev)
     sch->channel_prog = 0x0;
     sch->last_cmd_valid = false;
     sch->orb = NULL;
+    sch->thinint_active = false;
     /*
      * Use a device number if provided. Otherwise, fall back to subchannel
      * number.
@@ -864,6 +914,9 @@ static void virtio_ccw_notify(DeviceState *d, uint16_t vector)
             return;
         }
         indicators = ldq_phys(dev->indicators);
+        if (sch->thinint_active) {
+            vector += dev->ind_shift;
+        }
         indicators |= 1ULL << vector;
         stq_phys(dev->indicators, indicators);
     } else {
@@ -876,7 +929,15 @@ static void virtio_ccw_notify(DeviceState *d, uint16_t vector)
         stq_phys(dev->indicators2, indicators);
     }
 
-    css_conditional_io_interrupt(sch);
+    if (sch->thinint_active) {
+        /* Set indicator for the device. */
+        if (!ldub_phys(dev->summary_indicator)) {
+            stb_phys(dev->summary_indicator, 1);
+            css_adapter_interrupt(dev->thinint_isc);
+        }
+    } else {
+        css_conditional_io_interrupt(sch);
+    }
 
 }
 
@@ -897,6 +958,7 @@ static void virtio_ccw_reset(DeviceState *d)
     css_reset_sch(dev->sch);
     dev->indicators = 0;
     dev->indicators2 = 0;
+    dev->summary_indicator = 0;
 }
 
 static void virtio_ccw_vmstate_change(DeviceState *d, bool running)

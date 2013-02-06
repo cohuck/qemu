@@ -38,6 +38,7 @@
 #define CCW_CMD_SET_IND      0x43
 #define CCW_CMD_SET_CONF_IND 0x53
 #define CCW_CMD_READ_VQ_CONF 0x32
+#define CCW_CMD_SET_IND_ADAPTER 0x63
 
 #define TYPE_VIRTIO_CCW_DEVICE "virtio-ccw-device"
 #define VIRTIO_CCW_DEVICE(obj) \
@@ -84,9 +85,12 @@ struct VirtioCcwDevice {
     bool ioeventfd_started;
     bool ioeventfd_disabled;
     uint32_t flags;
+    uint8_t thinint_isc;
     /* Guest provided values: */
     hwaddr indicators;
     hwaddr indicators2;
+    hwaddr summary_indicator;
+    uint16_t ind_shift;
 };
 
 /* virtual css bus type */
