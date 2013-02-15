@@ -928,3 +928,22 @@ void kvm_s390_enable_css_support(S390CPU *cpu)
     r = kvm_vcpu_ioctl(CPU(cpu), KVM_ENABLE_CAP, &cap);
     assert(r == 0);
 }
+
+int kvm_s390_assign_subch_ioeventfd(int fd, uint32_t sch, int vq, bool assign)
+{
+    struct kvm_ioeventfd kick = {
+        .flags = KVM_IOEVENTFD_FLAG_VIRTIO_CCW_NOTIFY |
+        KVM_IOEVENTFD_FLAG_DATAMATCH,
+        .fd = fd,
+        .datamatch = vq,
+        .addr = sch,
+        .len = 8,
+    };
+    if (!kvm_check_extension(kvm_state, KVM_CAP_IOEVENTFD)) {
+        return -ENOSYS;
+    }
+    if (!assign) {
+        kick.flags |= KVM_IOEVENTFD_FLAG_DEASSIGN;
+    }
+    return kvm_vm_ioctl(kvm_state, KVM_IOEVENTFD, &kick);
+}
