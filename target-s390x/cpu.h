@@ -1068,6 +1068,7 @@ void kvm_s390_io_interrupt(S390CPU *cpu, uint16_t subchannel_id,
                            uint32_t io_int_word);
 void kvm_s390_crw_mchk(S390CPU *cpu);
 void kvm_s390_enable_css_support(S390CPU *cpu);
+int kvm_s390_assign_subch_ioeventfd(int fd, uint32_t sch, int vq, bool assign);
 #else
 static inline void kvm_s390_io_interrupt(S390CPU *cpu,
                                         uint16_t subchannel_id,
@@ -1081,6 +1082,11 @@ static inline void kvm_s390_crw_mchk(S390CPU *cpu)
 }
 static inline void kvm_s390_enable_css_support(S390CPU *cpu)
 {
+}
+static inline int kvm_s390_assign_subch_ioeventfd(int fd, uint32_t sch, int vq,
+                                                  bool assign)
+{
+    return -ENOSYS;
 }
 #endif
 
@@ -1105,6 +1111,16 @@ static inline void s390_crw_mchk(S390CPU *cpu)
         kvm_s390_crw_mchk(cpu);
     } else {
         cpu_inject_crw_mchk(cpu);
+    }
+}
+
+static inline int s390_assign_subch_ioeventfd(int fd, uint32_t sch_id, int vq,
+                                              bool assign)
+{
+    if (kvm_enabled()) {
+        return kvm_s390_assign_subch_ioeventfd(fd, sch_id, vq, assign);
+    } else {
+        return -ENOSYS;
     }
 }
 
