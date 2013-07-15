@@ -1062,6 +1062,9 @@ void kvm_s390_enable_css_support(S390CPU *cpu);
 int kvm_s390_assign_subch_ioeventfd(EventNotifier *notifier, uint32_t sch,
                                     int vq, bool assign);
 int kvm_s390_cpu_restart(S390CPU *cpu);
+int kvm_s390_register_io_adapter(uint32_t id, uint8_t isc, bool swap,
+                                 bool maskable);
+int kvm_s390_io_adapter_map(uint32_t id, uint64_t map_addr, bool do_map);
 #else
 static inline void kvm_s390_io_interrupt(S390CPU *cpu,
                                         uint16_t subchannel_id,
@@ -1083,6 +1086,16 @@ static inline int kvm_s390_assign_subch_ioeventfd(EventNotifier *notifier,
     return -ENOSYS;
 }
 static inline int kvm_s390_cpu_restart(S390CPU *cpu)
+{
+    return -ENOSYS;
+}
+static inline int kvm_s390_register_io_adapter(uint32_t id, uint8_t isc,
+                                               bool swap, bool maskable)
+{
+    return -ENOSYS;
+}
+static inline int kvm_s390_io_adapter_map(uint32_t id, uint64_t map_addr,
+                                          bool do_map)
 {
     return -ENOSYS;
 }
@@ -1126,6 +1139,26 @@ static inline int s390_assign_subch_ioeventfd(EventNotifier *notifier,
 {
     if (kvm_enabled()) {
         return kvm_s390_assign_subch_ioeventfd(notifier, sch_id, vq, assign);
+    } else {
+        return -ENOSYS;
+    }
+}
+
+static inline int s390_register_io_adapter(uint32_t id, uint8_t isc, bool swap,
+                                           bool is_maskable)
+{
+    if (kvm_enabled()) {
+        return kvm_s390_register_io_adapter(id, isc, swap, is_maskable);
+    } else {
+        return -ENOSYS;
+    }
+}
+
+static inline int s390_io_adapter_map(uint32_t id, uint64_t map_addr,
+                                      bool do_map)
+{
+    if (kvm_enabled()) {
+        return kvm_s390_io_adapter_map(id, map_addr, do_map);
     } else {
         return -ENOSYS;
     }

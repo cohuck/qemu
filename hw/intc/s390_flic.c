@@ -21,6 +21,11 @@
 #define FLIC_FAILED (-1UL)
 #define FLIC_SAVEVM_VERSION 1
 
+static KVMS390FLICState *s390_get_flic(void)
+{
+    return KVM_S390_FLIC(object_resolve_path("/machine/s390-flic", NULL));
+}
+
 void s390_flic_init(void)
 {
     DeviceState *dev;
@@ -146,6 +151,60 @@ static int __get_all_irqs(KVMS390FLICState *flic,
     } while (r == -ENOMEM && len <= KVM_S390_FLIC_MAX_BUFFER);
 
     return r;
+}
+
+int kvm_s390_register_io_adapter(uint32_t id, uint8_t isc, bool swap,
+                                 bool is_maskable)
+{
+    struct kvm_s390_io_adapter adapter = {
+        .id = id,
+        .isc = isc,
+        .maskable = is_maskable,
+        .swap = swap,
+    };
+    KVMS390FLICState *flic = s390_get_flic();
+    int r, ret;
+    struct kvm_device_attr attr = {
+        .group = KVM_DEV_FLIC_ADAPTER_REGISTER,
+        .addr = (uint64_t)&adapter,
+    };
+
+    if (!flic) {
+        return -ENOSYS;
+    }
+    if (!kvm_check_extension(kvm_state, KVM_CAP_IRQ_ROUTING)) {
+        return -ENOSYS;
+    }
+
+    r = ioctl(flic->fd, KVM_SET_DEVICE_ATTR, &attr);
+
+    ret = r ? -errno : 0;
+    return ret;
+}
+
+int kvm_s390_io_adapter_map(uint32_t id, uint64_t map_addr, bool do_map)
+{
+    struct kvm_s390_io_adapter_req req = {
+        .id = id,
+        .type = do_map ? KVM_S390_IO_ADAPTER_MAP : KVM_S390_IO_ADAPTER_UNMAP,
+        .addr = map_addr,
+    };
+    KVMS390FLICState *flic = s390_get_flic();
+    struct kvm_device_attr attr = {
+        .group = KVM_DEV_FLIC_ADAPTER_MODIFY,
+        .addr = (uint64_t)&req,
+    };
+    int r;
+
+    if (!flic) {
+        return -ENOSYS;
+    }
+    if (!kvm_check_extension(kvm_state, KVM_CAP_IRQ_ROUTING)) {
+        return -ENOSYS;
+    }
+
+    r = ioctl(flic->fd, KVM_SET_DEVICE_ATTR, &attr);
+    return r ? -errno : 0;
 }
 
 /**
