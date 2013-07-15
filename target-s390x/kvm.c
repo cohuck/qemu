@@ -919,6 +919,11 @@ void kvm_s390_enable_css_support(S390CPU *cpu)
 
 void kvm_arch_init_irq_routing(KVMState *s)
 {
+    if (kvm_check_extension(s, KVM_CAP_IRQ_ROUTING)) {
+        kvm_irqfds_allowed = true;
+        kvm_gsi_routing_allowed = true;
+        kvm_halt_in_kernel_allowed = false;
+    }
 }
 
 int kvm_s390_assign_subch_ioeventfd(EventNotifier *notifier, uint32_t sch,

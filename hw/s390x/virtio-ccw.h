@@ -77,6 +77,7 @@ typedef struct VirtIOCCWDeviceClass {
 
 typedef struct IndAddr {
     hwaddr addr;
+    uint64_t map;
     unsigned long refcnt;
     int len;
     QTAILQ_ENTRY(IndAddr) sibling;
@@ -93,6 +94,7 @@ struct VirtioCcwDevice {
     uint32_t flags;
     uint8_t thinint_isc;
     uint32_t adapter_id;
+    int gsi[VIRTIO_PCI_QUEUE_MAX];
     /* Guest provided values: */
     IndAddr *indicators;
     IndAddr *indicators2;
