@@ -294,6 +294,10 @@ bool kvm_arch_stop_on_emulation_error(CPUState *cpu);
 
 int kvm_check_extension(KVMState *s, unsigned int extension);
 
+int kvm_enable_cap_vm(KVMState *s, unsigned int capability, ...);
+
+int kvm_enable_cap_vcpu(CPUState *cpu, unsigned int capability, ...);
+
 uint32_t kvm_arch_get_supported_cpuid(KVMState *env, uint32_t function,
                                       uint32_t index, int reg);
 

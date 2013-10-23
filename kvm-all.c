@@ -501,7 +501,38 @@ int kvm_check_extension(KVMState *s, unsigned int extension)
     return ret;
 }
 
-static int kvm_set_ioeventfd_mmio(int fd, hwaddr addr, uint32_t val,
+int kvm_enable_cap_vm(KVMState *s, unsigned int capability, ...)
+{
+    struct kvm_enable_cap cap = {};
+    va_list ap;
+    int i;
+
+    cap.cap = capability;
+    va_start(ap, capability);
+    for (i = 0; i < 4; i++) {
+        cap.args[i] = va_arg(ap, uint64_t);
+    }
+    va_end(ap);
+    return kvm_vm_ioctl(s, KVM_ENABLE_CAP, &cap);
+}
+
+int kvm_enable_cap_vcpu(CPUState *cpu, unsigned int capability, ...)
+{
+    struct kvm_enable_cap cap = {};
+    va_list ap;
+    int i;
+
+    cap.cap = capability;
+    va_start(ap, capability);
+    for (i = 0; i < 4; i++) {
+        cap.args[i] = va_arg(ap, uint64_t);
+    }
+    va_end(ap);
+    return kvm_vcpu_ioctl(cpu, KVM_ENABLE_CAP, &cap);
+}
+
+
+static int kvm_set_ioeventfd_mmio(int fd, uint32_t addr, uint32_t val,
                                   bool assign, uint32_t size, bool datamatch)
 {
     int ret;
