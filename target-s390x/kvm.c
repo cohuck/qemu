@@ -204,6 +204,18 @@ int kvm_arch_put_registers(CPUState *cs, int level)
         }
     }
 
+    reg.id = KVM_REG_S390_GBEA;
+    reg.addr = (__u64) &env->gbea;
+    if (kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_set(reg.id, strerror(errno));
+    }
+
+    reg.id = KVM_REG_S390_PP;
+    reg.addr = (__u64) &env->pp;
+    if (kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_set(reg.id, strerror(errno));
+    }
+
     if (cap_sync_regs &&
         cs->kvm_run->kvm_valid_regs & KVM_SYNC_ACRS &&
         cs->kvm_run->kvm_valid_regs & KVM_SYNC_CRS) {
@@ -301,6 +313,18 @@ int kvm_arch_get_registers(CPUState *cs)
 
     reg.id = KVM_REG_S390_TODPR;
     reg.addr = (__u64)&(env->todpr);
+    if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_get(reg.id, strerror(errno));
+    }
+
+    reg.id = KVM_REG_S390_GBEA;
+    reg.addr = (__u64) &env->gbea;
+    if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_get(reg.id, strerror(errno));
+    }
+
+    reg.id = KVM_REG_S390_PP;
+    reg.addr = (__u64) &env->pp;
     if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
         trace_kvm_failed_reg_get(reg.id, strerror(errno));
     }
