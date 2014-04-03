@@ -36,6 +36,7 @@
 #include "sysemu/device_tree.h"
 #include "qapi/qmp/qjson.h"
 #include "monitor/monitor.h"
+#include "trace.h"
 
 /* #define DEBUG_KVM */
 
@@ -164,23 +165,20 @@ int kvm_arch_put_registers(CPUState *cs, int level)
 
     reg.id = KVM_REG_S390_CPU_TIMER;
     reg.addr = (__u64)&(env->cputm);
-    ret = kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg);
-    if (ret < 0) {
-        return ret;
+    if (kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_set(reg.id, strerror(errno));
     }
 
     reg.id = KVM_REG_S390_CLOCK_COMP;
     reg.addr = (__u64)&(env->ckc);
-    ret = kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg);
-    if (ret < 0) {
-        return ret;
+    if (kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_set(reg.id, strerror(errno));
     }
 
     reg.id = KVM_REG_S390_TODPR;
     reg.addr = (__u64)&(env->todpr);
-    ret = kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg);
-    if (ret < 0) {
-        return ret;
+    if (kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_set(reg.id, strerror(errno));
     }
 
     if (cap_async_pf) {
@@ -291,23 +289,20 @@ int kvm_arch_get_registers(CPUState *cs)
     /* One Regs */
     reg.id = KVM_REG_S390_CPU_TIMER;
     reg.addr = (__u64)&(env->cputm);
-    r = kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg);
-    if (r < 0) {
-        return r;
+    if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_get(reg.id, strerror(errno));
     }
 
     reg.id = KVM_REG_S390_CLOCK_COMP;
     reg.addr = (__u64)&(env->ckc);
-    r = kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg);
-    if (r < 0) {
-        return r;
+    if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_get(reg.id, strerror(errno));
     }
 
     reg.id = KVM_REG_S390_TODPR;
     reg.addr = (__u64)&(env->todpr);
-    r = kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg);
-    if (r < 0) {
-        return r;
+    if (kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg)) {
+        trace_kvm_failed_reg_get(reg.id, strerror(errno));
     }
 
     if (cap_async_pf) {
