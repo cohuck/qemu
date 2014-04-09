@@ -331,15 +331,11 @@ static void xics_kvm_cpu_setup(XICSState *icp, PowerPCCPU *cpu)
 
     if (icpkvm->kernel_xics_fd != -1) {
         int ret;
-        struct kvm_enable_cap xics_enable_cap = {
-            .cap = KVM_CAP_IRQ_XICS,
-            .flags = 0,
-            .args = {icpkvm->kernel_xics_fd, kvm_arch_vcpu_id(cs), 0, 0},
-        };
 
         ss->cs = cs;
 
-        ret = kvm_vcpu_ioctl(ss->cs, KVM_ENABLE_CAP, &xics_enable_cap);
+        ret = kvm_enable_cap_vcpu(cs, KVM_CAP_IRQ_XICS,
+                                  icpkvm->kernel_xics_fd, kvm_arch_vcpu_id(cs));
         if (ret < 0) {
             error_report("Unable to connect CPU%ld to kernel XICS: %s",
                     kvm_arch_vcpu_id(cs), strerror(errno));
