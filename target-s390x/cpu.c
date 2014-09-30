@@ -292,9 +292,64 @@ unsigned int s390_cpu_set_state(uint8_t cpu_state, S390CPU *cpu)
 }
 #endif
 
+static int cpu_post_load(void *opaque, int version_id)
+{
+    S390CPU *cpu = opaque;
+
+    /* the cpu state is fine for QEMU - we just need to push it to kvm */
+    if (kvm_enabled()) {
+        kvm_s390_set_cpu_state(cpu, cpu->env.cpu_state);
+    }
+
+    return 0;
+}
+
 static const VMStateDescription vmstate_s390_cpu = {
     .name = "cpu",
-    .unmigratable = 1,
+    .post_load = cpu_post_load,
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .minimum_version_id_old = 1,
+    .fields      = (VMStateField[]) {
+        VMSTATE_UINT64(env.fregs[0].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[1].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[2].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[3].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[4].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[5].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[6].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[7].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[8].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[9].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[10].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[11].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[12].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[13].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[14].ll, S390CPU),
+        VMSTATE_UINT64(env.fregs[15].ll, S390CPU),
+        VMSTATE_UINT64_ARRAY(env.regs, S390CPU, 16),
+        VMSTATE_UINT64(env.psw.mask, S390CPU),
+        VMSTATE_UINT64(env.psw.addr, S390CPU),
+        VMSTATE_UINT64(env.psa, S390CPU),
+        VMSTATE_UINT32(env.fpc, S390CPU),
+        VMSTATE_UINT32(env.todpr, S390CPU),
+        VMSTATE_UINT64(env.pfault_token, S390CPU),
+        VMSTATE_UINT64(env.pfault_compare, S390CPU),
+        VMSTATE_UINT64(env.pfault_select, S390CPU),
+        VMSTATE_UINT64(env.cputm, S390CPU),
+        VMSTATE_UINT64(env.ckc, S390CPU),
+        VMSTATE_UINT64(env.gbea, S390CPU),
+        VMSTATE_UINT64(env.pp, S390CPU),
+        VMSTATE_UINT32_ARRAY(env.aregs, S390CPU, 16),
+        VMSTATE_UINT64_ARRAY(env.cregs, S390CPU, 16),
+        VMSTATE_UINT8(env.cpu_state, S390CPU),
+        VMSTATE_END_OF_LIST()
+     },
+    .subsections = (VMStateSubsection[]) {
+        {
+            /* empty */
+        }
+    }
 };
 
 static void s390_cpu_class_init(ObjectClass *oc, void *data)
@@ -323,11 +378,11 @@ static void s390_cpu_class_init(ObjectClass *oc, void *data)
     cc->handle_mmu_fault = s390_cpu_handle_mmu_fault;
 #else
     cc->get_phys_page_debug = s390_cpu_get_phys_page_debug;
+    cc->vmsd = &vmstate_s390_cpu;
     cc->write_elf64_note = s390_cpu_write_elf64_note;
     cc->write_elf64_qemunote = s390_cpu_write_elf64_qemunote;
     cc->cpu_exec_interrupt = s390_cpu_exec_interrupt;
 #endif
-    dc->vmsd = &vmstate_s390_cpu;
     cc->gdb_num_core_regs = S390_NUM_CORE_REGS;
     cc->gdb_core_xml_file = "s390x-core64.xml";
 }
