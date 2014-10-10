@@ -195,6 +195,7 @@ typedef struct VirtIOSCSI {
     bool dataplane_starting;
     bool dataplane_stopping;
     bool dataplane_disabled;
+    bool dataplane_fenced;
     Notifier migration_state_notifier;
 } VirtIOSCSI;
 
