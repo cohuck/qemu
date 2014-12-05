@@ -230,6 +230,8 @@ int clp_service_call(S390CPU *cpu, uint8_t r2)
             break;
         case CLP_SET_DISABLE_PCI_FN:
             pbdev->fh = pbdev->fh & ~(1 << ENABLE_BIT_OFFSET);
+            pbdev->error_state = false;
+            pbdev->lgstg_blocked = false;
             stl_p(&ressetpci->fh, pbdev->fh);
             stw_p(&ressetpci->hdr.rsp, CLP_RC_OK);
             break;
@@ -327,6 +329,12 @@ int pcilg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2)
     if (!pbdev) {
         DPRINTF("pcilg no pci dev\n");
         setcc(cpu, ZPCI_PCI_LS_INVAL_HANDLE);
+        return 0;
+    }
+
+    if (pbdev->lgstg_blocked) {
+        setcc(cpu, ZPCI_PCI_LS_ERR);
+        s390_set_status_code(env, r2, ZPCI_PCI_ST_BLOCKED);
         return 0;
     }
 
@@ -437,6 +445,12 @@ int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2)
     if (!pbdev) {
         DPRINTF("pcistg no pci dev\n");
         setcc(cpu, ZPCI_PCI_LS_INVAL_HANDLE);
+        return 0;
+    }
+
+    if (pbdev->lgstg_blocked) {
+        setcc(cpu, ZPCI_PCI_LS_ERR);
+        s390_set_status_code(env, r2, ZPCI_PCI_ST_BLOCKED);
         return 0;
     }
 
@@ -586,6 +600,12 @@ int pcistb_service_call(S390CPU *cpu, uint8_t r1, uint8_t r3, uint64_t gaddr)
         return 0;
     }
 
+    if (pbdev->lgstg_blocked) {
+        setcc(cpu, ZPCI_PCI_LS_ERR);
+        s390_set_status_code(env, r1, ZPCI_PCI_ST_BLOCKED);
+        return 0;
+    }
+
     mr = pbdev->pdev->io_regions[pcias].memory;
     if (!memory_region_access_valid(mr, env->regs[r3], len, true)) {
         program_interrupt(env, PGM_ADDRESSING, 6);
@@ -621,6 +641,9 @@ static int reg_irqs(CPUS390XState *env, S390PCIBusDevice *pbdev, ZpciFib fib)
     pbdev->routes.adapter.summary_offset = FIB_DATA_AISBO(ldl_p(&fib.data));
     pbdev->routes.adapter.ind_addr = ldq_p(&fib.aibv);
     pbdev->routes.adapter.ind_offset = FIB_DATA_AIBVO(ldl_p(&fib.data));
+    pbdev->isc = FIB_DATA_ISC(ldl_p(&fib.data));
+    pbdev->noi = FIB_DATA_NOI(ldl_p(&fib.data));
+    pbdev->sum = FIB_DATA_SUM(ldl_p(&fib.data));
 
     DPRINTF("reg_irqs adapter id %d\n", pbdev->routes.adapter.adapter_id);
     return 0;
@@ -638,9 +661,45 @@ static int dereg_irqs(S390PCIBusDevice *pbdev)
     pbdev->routes.adapter.summary_offset = 0;
     pbdev->routes.adapter.ind_addr = 0;
     pbdev->routes.adapter.ind_offset = 0;
+    pbdev->isc = 0;
+    pbdev->noi = 0;
+    pbdev->sum = 0;
 
     DPRINTF("dereg_irqs adapter id %d\n", pbdev->routes.adapter.adapter_id);
     return 0;
+}
+
+static int reg_ioat(CPUS390XState *env, S390PCIBusDevice *pbdev, ZpciFib fib)
+{
+    uint64_t pba = ldq_p(&fib.pba);
+    uint64_t pal = ldq_p(&fib.pal);
+    uint64_t g_iota = ldq_p(&fib.iota);
+    uint8_t dt = (g_iota >> 2) & 0x7;
+    uint8_t t = (g_iota >> 11) & 0x1;
+
+    if (pba > pal || pba < ZPCI_SDMA_ADDR || pal > ZPCI_EDMA_ADDR) {
+        program_interrupt(env, PGM_OPERAND, 6);
+        return -EINVAL;
+    }
+
+    /* currently we only support designation type 1 with translation */
+    if (!(dt == ZPCI_IOTA_RTTO && t)) {
+        error_report("unsupported ioat dt %d t %d", dt, t);
+        program_interrupt(env, PGM_OPERAND, 6);
+        return -EINVAL;
+    }
+
+    pbdev->pba = pba;
+    pbdev->pal = pal;
+    pbdev->g_iota = g_iota;
+    return 0;
+}
+
+static void dereg_ioat(S390PCIBusDevice *pbdev)
+{
+    pbdev->pba = 0;
+    pbdev->pal = 0;
+    pbdev->g_iota = 0;
 }
 
 int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
@@ -650,6 +709,7 @@ int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
     uint32_t fh;
     ZpciFib fib;
     S390PCIBusDevice *pbdev;
+    uint64_t cc = ZPCI_PCI_LS_OK;
 
     cpu_synchronize_state(CPU(cpu));
 
@@ -676,36 +736,42 @@ int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
     cpu_physical_memory_read(fiba, (uint8_t *)&fib, sizeof(fib));
 
     switch (oc) {
-    case ZPCI_MOD_FC_REG_INT: {
-        pbdev->isc = FIB_DATA_ISC(ldl_p(&fib.data));
-        reg_irqs(env, pbdev, fib);
+    case ZPCI_MOD_FC_REG_INT:
+        if (reg_irqs(env, pbdev, fib)) {
+            cc = ZPCI_PCI_LS_ERR;
+        }
         break;
-    }
     case ZPCI_MOD_FC_DEREG_INT:
         dereg_irqs(pbdev);
         break;
     case ZPCI_MOD_FC_REG_IOAT:
-        if (ldq_p(&fib.pba) > ldq_p(&fib.pal)) {
-            program_interrupt(&cpu->env, PGM_OPERAND, 6);
-            return 0;
+        if (reg_ioat(env, pbdev, fib)) {
+            cc = ZPCI_PCI_LS_ERR;
         }
-        pbdev->g_iota = ldq_p(&fib.iota);
         break;
     case ZPCI_MOD_FC_DEREG_IOAT:
+        dereg_ioat(pbdev);
         break;
     case ZPCI_MOD_FC_REREG_IOAT:
+        dereg_ioat(pbdev);
+        if (reg_ioat(env, pbdev, fib)) {
+            cc = ZPCI_PCI_LS_ERR;
+        }
         break;
     case ZPCI_MOD_FC_RESET_ERROR:
+        pbdev->error_state = false;
+        pbdev->lgstg_blocked = false;
         break;
     case ZPCI_MOD_FC_RESET_BLOCK:
+        pbdev->lgstg_blocked = false;
         break;
     case ZPCI_MOD_FC_SET_MEASURE:
         break;
     default:
         program_interrupt(&cpu->env, PGM_OPERAND, 6);
-        return 0;
+        cc = ZPCI_PCI_LS_ERR;
     }
 
-    setcc(cpu, ZPCI_PCI_LS_OK);
+    setcc(cpu, cc);
     return 0;
 }

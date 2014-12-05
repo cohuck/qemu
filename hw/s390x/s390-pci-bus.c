@@ -52,6 +52,9 @@ int chsc_sei_nt2_get_event(void *res)
             eccdf = (PciCcdfErr *)nt2_res->ccdf;
             eccdf->fid = cpu_to_be32(sei_cont->fid);
             eccdf->fh = cpu_to_be32(sei_cont->fh);
+            eccdf->e = cpu_to_be32(sei_cont->e);
+            eccdf->faddr = cpu_to_be64(sei_cont->faddr);
+            eccdf->pec = cpu_to_be16(sei_cont->pec);
             break;
         case 2: /* availability event */
             accdf = (PciCcdfAvail *)nt2_res->ccdf;
@@ -184,8 +187,8 @@ S390PCIBusDevice *s390_pci_find_dev_by_fh(uint32_t fh)
     return NULL;
 }
 
-static void s390_pci_generate_plug_event(uint16_t pec, uint32_t fh,
-                                         uint32_t fid)
+static void s390_pci_generate_event(uint8_t cc, uint16_t pec, uint32_t fh,
+                                    uint32_t fid, uint64_t faddr, uint32_t e)
 {
     SeiContainer *sei_cont = g_malloc0(sizeof(SeiContainer));
     S390pciState *s = S390_PCI_HOST_BRIDGE(
@@ -197,11 +200,26 @@ static void s390_pci_generate_plug_event(uint16_t pec, uint32_t fh,
 
     sei_cont->fh = fh;
     sei_cont->fid = fid;
-    sei_cont->cc = 2;
+    sei_cont->cc = cc;
     sei_cont->pec = pec;
+    sei_cont->faddr = faddr;
+    sei_cont->e = e;
 
     QTAILQ_INSERT_TAIL(&s->pending_sei, sei_cont, link);
     css_generate_css_crws(0);
+}
+
+static void s390_pci_generate_plug_event(uint16_t pec, uint32_t fh,
+                                         uint32_t fid)
+{
+    s390_pci_generate_event(2, pec, fh, fid, 0, 0);
+}
+
+static void s390_pci_generate_error_event(uint16_t pec, uint32_t fh,
+                                          uint32_t fid, uint64_t faddr,
+                                          uint32_t e)
+{
+    s390_pci_generate_event(1, pec, fh, fid, faddr, e);
 }
 
 static void s390_pci_set_irq(void *opaque, int irq, int level)
@@ -313,10 +331,30 @@ static IOMMUTLBEntry s390_translate_iommu(MemoryRegion *iommu, hwaddr addr,
         return ret;
     }
 
+    if (!pbdev->g_iota) {
+        pbdev->error_state = true;
+        pbdev->lgstg_blocked = true;
+        s390_pci_generate_error_event(ERR_EVENT_INVALAS, pbdev->fh, pbdev->fid,
+                                      addr, 0);
+        return ret;
+    }
+
+    if (addr < pbdev->pba || addr > pbdev->pal) {
+        pbdev->error_state = true;
+        pbdev->lgstg_blocked = true;
+        s390_pci_generate_error_event(ERR_EVENT_OORANGE, pbdev->fh, pbdev->fid,
+                                      addr, 0);
+        return ret;
+    }
+
     pte = s390_guest_io_table_walk(s390_pci_get_table_origin(pbdev->g_iota),
                                    addr);
 
     if (!pte) {
+        pbdev->error_state = true;
+        pbdev->lgstg_blocked = true;
+        s390_pci_generate_error_event(ERR_EVENT_SERR, pbdev->fh, pbdev->fid,
+                                      addr, ERR_EVENT_Q_BIT);
         return ret;
     }
 
@@ -353,7 +391,7 @@ static uint8_t set_ind_atomic(uint64_t ind_loc, uint8_t to_be_set)
 
     ind_addr = cpu_physical_memory_map(ind_loc, &len, 1);
     if (!ind_addr) {
-        error_report("%s: unable to access indicator", __func__);
+        s390_pci_generate_error_event(ERR_EVENT_AIRERR, 0, 0, 0, 0);
         return -1;
     }
     do {
@@ -374,12 +412,14 @@ static void s390_msi_ctrl_write(void *opaque, hwaddr addr, uint64_t data,
     uint32_t vec = data & ZPCI_MSI_VEC_MASK;
     uint64_t ind_bit;
     uint32_t sum_bit;
+    uint32_t e = 0;
 
     DPRINTF("write_msix data 0x%lx fid %d vec 0x%x\n", data, fid, vec);
 
     pbdev = s390_pci_find_dev_by_fid(fid);
     if (!pbdev) {
-        DPRINTF("msix_notify no dev\n");
+        e |= (vec << ERR_EVENT_MVN_OFFSET);
+        s390_pci_generate_error_event(ERR_EVENT_NOMSI, 0, fid, addr, e);
         return;
     }
 

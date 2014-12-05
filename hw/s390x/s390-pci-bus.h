@@ -33,6 +33,31 @@
 #define HP_EVENT_CONFIGURED_TO_STBRES 0x0304
 #define HP_EVENT_STANDBY_TO_RESERVED  0x0308
 
+#define ERR_EVENT_INVALAS 0x1
+#define ERR_EVENT_OORANGE 0x2
+#define ERR_EVENT_INVALTF 0x3
+#define ERR_EVENT_TPROTE  0x4
+#define ERR_EVENT_APROTE  0x5
+#define ERR_EVENT_KEYE    0x6
+#define ERR_EVENT_INVALTE 0x7
+#define ERR_EVENT_INVALTL 0x8
+#define ERR_EVENT_TT      0x9
+#define ERR_EVENT_INVALMS 0xa
+#define ERR_EVENT_SERR    0xb
+#define ERR_EVENT_NOMSI   0x10
+#define ERR_EVENT_INVALBV 0x11
+#define ERR_EVENT_AIBV    0x12
+#define ERR_EVENT_AIRERR  0x13
+#define ERR_EVENT_FMBA    0x2a
+#define ERR_EVENT_FMBUP   0x2b
+#define ERR_EVENT_FMBPRO  0x2c
+#define ERR_EVENT_CCONF   0x30
+#define ERR_EVENT_SERVAC  0x3a
+#define ERR_EVENT_PERMERR 0x3b
+
+#define ERR_EVENT_Q_BIT 0x2
+#define ERR_EVENT_MVN_OFFSET 16
+
 #define ZPCI_MSI_VEC_BITS 11
 #define ZPCI_MSI_VEC_MASK 0x7ff
 
@@ -130,13 +155,15 @@ typedef struct SeiContainer {
     uint32_t fh;
     uint8_t cc;
     uint16_t pec;
+    uint64_t faddr;
+    uint32_t e;
 } SeiContainer;
 
 typedef struct PciCcdfErr {
     uint32_t reserved1;
     uint32_t fh;
     uint32_t fid;
-    uint32_t reserved2;
+    uint32_t e;
     uint64_t faddr;
     uint32_t reserved3;
     uint16_t reserved4;
@@ -189,10 +216,16 @@ typedef struct S390MsixInfo {
 typedef struct S390PCIBusDevice {
     PCIDevice *pdev;
     bool configured;
+    bool error_state;
+    bool lgstg_blocked;
     uint32_t fh;
     uint32_t fid;
     uint64_t g_iota;
+    uint64_t pba;
+    uint64_t pal;
     uint8_t isc;
+    uint16_t noi;
+    uint8_t sum;
     S390MsixInfo msix;
     AdapterRoutes routes;
     AddressSpace as;
