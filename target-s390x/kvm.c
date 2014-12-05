@@ -906,8 +906,13 @@ static int kvm_pcistg_service_call(S390CPU *cpu, struct kvm_run *run)
 
 static int kvm_stpcifc_service_call(S390CPU *cpu, struct kvm_run *run)
 {
-    qemu_log_mask(LOG_UNIMP, "STPCIFC missing\n");
-    return 0;
+    uint8_t r1 = (run->s390_sieic.ipa & 0x00f0) >> 4;
+    uint64_t fiba;
+
+    cpu_synchronize_state(CPU(cpu));
+    fiba = get_base_disp_rxy(cpu, run);
+
+    return stpcifc_service_call(cpu, r1, fiba);
 }
 
 static int kvm_sic_service_call(S390CPU *cpu, struct kvm_run *run)

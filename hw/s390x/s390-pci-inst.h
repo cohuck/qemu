@@ -283,5 +283,6 @@ int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2);
 int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2);
 int pcistb_service_call(S390CPU *cpu, uint8_t r1, uint8_t r3, uint64_t gaddr);
 int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba);
+int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba);
 
 #endif

@@ -766,12 +766,76 @@ int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
         pbdev->lgstg_blocked = false;
         break;
     case ZPCI_MOD_FC_SET_MEASURE:
+        pbdev->fmb_addr = ldq_p(&fib.fmb_addr);
         break;
     default:
         program_interrupt(&cpu->env, PGM_OPERAND, 6);
         cc = ZPCI_PCI_LS_ERR;
     }
 
+    setcc(cpu, cc);
+    return 0;
+}
+
+int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
+{
+    CPUS390XState *env = &cpu->env;
+    uint32_t fh;
+    ZpciFib fib;
+    S390PCIBusDevice *pbdev;
+    uint32_t data;
+    uint64_t cc = ZPCI_PCI_LS_OK;
+
+    cpu_synchronize_state(CPU(cpu));
+
+    if (env->psw.mask & PSW_MASK_PSTATE) {
+        program_interrupt(env, PGM_PRIVILEGED, 6);
+        return 0;
+    }
+
+    fh = env->regs[r1] >> 32;
+
+    if (fiba & 0x7) {
+        program_interrupt(env, PGM_SPECIFICATION, 6);
+        return 0;
+    }
+
+    pbdev = s390_pci_find_dev_by_fh(fh);
+    if (!pbdev) {
+        setcc(cpu, ZPCI_PCI_LS_INVAL_HANDLE);
+        return 0;
+    }
+
+    memset(&fib, 0, sizeof(fib));
+    stq_p(&fib.pba, pbdev->pba);
+    stq_p(&fib.pal, pbdev->pal);
+    stq_p(&fib.iota, pbdev->g_iota);
+    stq_p(&fib.aibv, pbdev->routes.adapter.ind_addr);
+    stq_p(&fib.aisb, pbdev->routes.adapter.summary_addr);
+    stq_p(&fib.fmb_addr, pbdev->fmb_addr);
+
+    data = (pbdev->isc << 28) | (pbdev->noi << 16) |
+           (pbdev->routes.adapter.ind_offset << 8) | (pbdev->sum << 7) |
+           pbdev->routes.adapter.summary_offset;
+    stw_p(&fib.data, data);
+
+    if (pbdev->fh >> ENABLE_BIT_OFFSET) {
+        fib.fc |= 0x80;
+    }
+
+    if (pbdev->error_state) {
+        fib.fc |= 0x40;
+    }
+
+    if (pbdev->lgstg_blocked) {
+        fib.fc |= 0x20;
+    }
+
+    if (pbdev->g_iota) {
+        fib.fc |= 0x10;
+    }
+
+    cpu_physical_memory_write(fiba, (uint8_t *)&fib, sizeof(fib));
     setcc(cpu, cc);
     return 0;
 }

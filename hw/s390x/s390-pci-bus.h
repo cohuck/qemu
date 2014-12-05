@@ -223,6 +223,7 @@ typedef struct S390PCIBusDevice {
     uint64_t g_iota;
     uint64_t pba;
     uint64_t pal;
+    uint64_t fmb_addr;
     uint8_t isc;
     uint16_t noi;
     uint8_t sum;
