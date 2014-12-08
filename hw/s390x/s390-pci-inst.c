@@ -564,8 +564,6 @@ int pcistb_service_call(S390CPU *cpu, uint8_t r1, uint8_t r3, uint64_t gaddr)
     uint8_t pcias;
     uint8_t len;
 
-    cpu_synchronize_state(CPU(cpu));
-
     if (env->psw.mask & PSW_MASK_PSTATE) {
         program_interrupt(env, PGM_PRIVILEGED, 6);
         return 0;
@@ -711,8 +709,6 @@ int mpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
     S390PCIBusDevice *pbdev;
     uint64_t cc = ZPCI_PCI_LS_OK;
 
-    cpu_synchronize_state(CPU(cpu));
-
     if (env->psw.mask & PSW_MASK_PSTATE) {
         program_interrupt(env, PGM_PRIVILEGED, 6);
         return 0;
@@ -785,8 +781,6 @@ int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba)
     S390PCIBusDevice *pbdev;
     uint32_t data;
     uint64_t cc = ZPCI_PCI_LS_OK;
-
-    cpu_synchronize_state(CPU(cpu));
 
     if (env->psw.mask & PSW_MASK_PSTATE) {
         program_interrupt(env, PGM_PRIVILEGED, 6);
