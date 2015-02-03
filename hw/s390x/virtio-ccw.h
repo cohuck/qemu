@@ -102,9 +102,9 @@ struct VirtioCcwDevice {
 };
 
 /* The maximum virtio revision we support. */
-static inline int virtio_ccw_rev_max(VirtioCcwDevice *dev)
+static inline int virtio_ccw_rev_max(VirtioCcwDevice *dev, VirtIODevice *vdev)
 {
-    return dev->host_features & (1ULL << VIRTIO_F_VERSION_1) ? 1 : 0;
+    return virtio_version_1_capable(vdev, dev->host_features) ? 1 : 0;
 }
 
 /* virtual css bus type */

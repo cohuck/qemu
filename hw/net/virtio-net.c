@@ -442,11 +442,9 @@ static void virtio_net_set_queues(VirtIONet *n)
 
 static void virtio_net_set_multiqueue(VirtIONet *n, int multiqueue);
 
-static uint64_t virtio_net_get_features(VirtIODevice *vdev, uint64_t features)
+static uint64_t virtio_net_get_features_common(VirtIONet *n,
+                                               uint64_t features)
 {
-    VirtIONet *n = VIRTIO_NET(vdev);
-    NetClientState *nc = qemu_get_queue(n->nic);
-
     /* Firstly sync all virtio-net possible supported features */
     features |= n->host_features;
 
@@ -469,8 +467,32 @@ static uint64_t virtio_net_get_features(VirtIODevice *vdev, uint64_t features)
         virtio_clear_feature(&features, VIRTIO_NET_F_HOST_UFO);
     }
 
+    return features;
+}
+
+static uint64_t virtio_net_get_features(VirtIODevice *vdev, uint64_t features)
+{
+    VirtIONet *n = VIRTIO_NET(vdev);
+    NetClientState *nc = qemu_get_queue(n->nic);
+
+    features = virtio_net_get_features_common(n, features);
+
     if (!get_vhost_net(nc->peer)) {
         virtio_add_feature(&features, VIRTIO_F_VERSION_1);
+        return features;
+    }
+    return vhost_net_get_features(get_vhost_net(nc->peer), features);
+}
+
+static uint64_t virtio_net_get_features_legacy(VirtIODevice *vdev,
+                                               uint64_t features)
+{
+    VirtIONet *n = VIRTIO_NET(vdev);
+    NetClientState *nc = qemu_get_queue(n->nic);
+
+    features = virtio_net_get_features_common(n, features);
+
+    if (!get_vhost_net(nc->peer)) {
         return features;
     }
     return vhost_net_get_features(get_vhost_net(nc->peer), features);
@@ -1751,6 +1773,7 @@ static void virtio_net_class_init(ObjectClass *klass, void *data)
     vdc->get_config = virtio_net_get_config;
     vdc->set_config = virtio_net_set_config;
     vdc->get_features = virtio_net_get_features;
+    vdc->get_features_legacy = virtio_net_get_features_legacy;
     vdc->set_features = virtio_net_set_features;
     vdc->bad_features = virtio_net_bad_features;
     vdc->reset = virtio_net_reset;

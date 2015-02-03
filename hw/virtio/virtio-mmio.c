@@ -353,8 +353,8 @@ static void virtio_mmio_device_plugged(DeviceState *opaque)
     VirtIOMMIOProxy *proxy = VIRTIO_MMIO(opaque);
 
     virtio_add_feature(&proxy->host_features, VIRTIO_F_NOTIFY_ON_EMPTY);
-    proxy->host_features = virtio_bus_get_vdev_features(&proxy->bus,
-                                                        proxy->host_features);
+    proxy->host_features =
+        virtio_bus_get_vdev_features_legacy(&proxy->bus, proxy->host_features);
 }
 
 static void virtio_mmio_realizefn(DeviceState *d, Error **errp)

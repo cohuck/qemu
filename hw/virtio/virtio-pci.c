@@ -1394,8 +1394,8 @@ static void virtio_pci_device_plugged(DeviceState *d)
 
     virtio_add_feature(&proxy->host_features, VIRTIO_F_NOTIFY_ON_EMPTY);
     virtio_add_feature(&proxy->host_features, VIRTIO_F_BAD_FEATURE);
-    proxy->host_features = virtio_bus_get_vdev_features(bus,
-                                                      proxy->host_features);
+    proxy->host_features =
+        virtio_bus_get_vdev_features_legacy(bus, proxy->host_features);
 }
 
 static void virtio_pci_device_unplugged(DeviceState *d)

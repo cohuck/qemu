@@ -101,6 +101,12 @@ static void handle_input(VirtIODevice *vdev, VirtQueue *vq)
 
 static uint64_t get_features(VirtIODevice *vdev, uint64_t f)
 {
+    /* virtio_add_feature(&f, VIRTIO_F_VERSION_1); */
+    return f;
+}
+
+static uint64_t get_features_legacy(VirtIODevice *vdev, uint64_t f)
+{
     return f;
 }
 
@@ -233,6 +239,7 @@ static void virtio_rng_class_init(ObjectClass *klass, void *data)
     vdc->realize = virtio_rng_device_realize;
     vdc->unrealize = virtio_rng_device_unrealize;
     vdc->get_features = get_features;
+    vdc->get_features_legacy = get_features_legacy;
 }
 
 static void virtio_rng_initfn(Object *obj)

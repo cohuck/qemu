@@ -718,7 +718,8 @@ static void virtio_blk_set_config(VirtIODevice *vdev, const uint8_t *config)
     aio_context_release(blk_get_aio_context(s->blk));
 }
 
-static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features)
+static uint64_t virtio_blk_get_features_legacy(VirtIODevice *vdev,
+                                               uint64_t features)
 {
     VirtIOBlock *s = VIRTIO_BLK(vdev);
 
@@ -741,15 +742,8 @@ static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features)
     return features;
 }
 
-static uint64_t virtio_blk_get_features_rev(VirtIODevice *vdev,
-                                            uint64_t features,
-                                            unsigned int revision)
+static uint64_t virtio_blk_get_features(VirtIODevice *vdev, uint64_t features)
 {
-    if (revision == 0) {
-        /* legacy */
-        virtio_clear_feature(&features, VIRTIO_F_VERSION_1);
-        return virtio_blk_get_features(vdev, features);
-    }
     /* virtio 1.0 or later */
     virtio_clear_feature(&features, VIRTIO_BLK_F_SCSI);
     virtio_clear_feature(&features, VIRTIO_BLK_F_CONFIG_WCE);
@@ -995,7 +989,7 @@ static void virtio_blk_class_init(ObjectClass *klass, void *data)
     vdc->get_config = virtio_blk_update_config;
     vdc->set_config = virtio_blk_set_config;
     vdc->get_features = virtio_blk_get_features;
-    vdc->get_features_rev = virtio_blk_get_features_rev;
+    vdc->get_features_legacy = virtio_blk_get_features_legacy;
     vdc->set_status = virtio_blk_set_status;
     vdc->reset = virtio_blk_reset;
     vdc->save = virtio_blk_save_device;

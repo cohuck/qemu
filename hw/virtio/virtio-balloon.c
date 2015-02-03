@@ -325,7 +325,8 @@ static void virtio_balloon_set_config(VirtIODevice *vdev,
     trace_virtio_balloon_set_config(dev->actual, oldactual);
 }
 
-static uint64_t virtio_balloon_get_features(VirtIODevice *vdev, uint64_t f)
+static uint64_t virtio_balloon_get_features_legacy(VirtIODevice *vdev,
+                                                   uint64_t f)
 {
     virtio_add_feature(&f, VIRTIO_BALLOON_F_STATS_VQ);
     return f;
@@ -447,7 +448,7 @@ static void virtio_balloon_class_init(ObjectClass *klass, void *data)
     vdc->unrealize = virtio_balloon_device_unrealize;
     vdc->get_config = virtio_balloon_get_config;
     vdc->set_config = virtio_balloon_set_config;
-    vdc->get_features = virtio_balloon_get_features;
+    vdc->get_features_legacy = virtio_balloon_get_features_legacy;
     vdc->save = virtio_balloon_save_device;
     vdc->load = virtio_balloon_load_device;
 }

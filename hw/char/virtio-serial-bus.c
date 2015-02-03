@@ -498,16 +498,27 @@ static void handle_input(VirtIODevice *vdev, VirtQueue *vq)
     }
 }
 
-static uint64_t get_features(VirtIODevice *vdev, uint64_t features)
+static uint64_t get_features_common(VirtIOSerial *vser, uint64_t features)
 {
-    VirtIOSerial *vser;
-
-    vser = VIRTIO_SERIAL(vdev);
-
     if (vser->bus.max_nr_ports > 1) {
         virtio_add_feature(&features, VIRTIO_CONSOLE_F_MULTIPORT);
     }
     return features;
+}
+
+static uint64_t get_features(VirtIODevice *vdev, uint64_t features)
+{
+    VirtIOSerial *vser = VIRTIO_SERIAL(vdev);
+
+    /* virtio_add_feature(&features, VIRTIO_F_VERSION_1); */
+    return get_features_common(vser, features);
+}
+
+static uint64_t get_features_legacy(VirtIODevice *vdev, uint64_t features)
+{
+    VirtIOSerial *vser = VIRTIO_SERIAL(vdev);
+
+    return get_features_common(vser, features);
 }
 
 /* Guest requested config info */
@@ -1100,6 +1111,7 @@ static void virtio_serial_class_init(ObjectClass *klass, void *data)
     vdc->realize = virtio_serial_device_realize;
     vdc->unrealize = virtio_serial_device_unrealize;
     vdc->get_features = get_features;
+    vdc->get_features_legacy = get_features_legacy;
     vdc->get_config = get_config;
     vdc->set_status = set_status;
     vdc->reset = vser_reset;

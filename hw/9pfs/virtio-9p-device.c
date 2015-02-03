@@ -21,7 +21,8 @@
 #include "virtio-9p-coth.h"
 #include "hw/virtio/virtio-access.h"
 
-static uint64_t virtio_9p_get_features(VirtIODevice *vdev, uint64_t features)
+static uint64_t virtio_9p_get_features_legacy(VirtIODevice *vdev,
+                                              uint64_t features)
 {
     virtio_add_feature(&features, VIRTIO_9P_MOUNT_TAG);
     return features;
@@ -152,7 +153,7 @@ static void virtio_9p_class_init(ObjectClass *klass, void *data)
     dc->props = virtio_9p_properties;
     set_bit(DEVICE_CATEGORY_STORAGE, dc->categories);
     vdc->realize = virtio_9p_device_realize;
-    vdc->get_features = virtio_9p_get_features;
+    vdc->get_features_legacy = virtio_9p_get_features_legacy;
     vdc->get_config = virtio_9p_get_config;
 }
 

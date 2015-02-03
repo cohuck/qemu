@@ -733,16 +733,16 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
         }
         cpu_physical_memory_read(ccw.cda, &revinfo, len);
         if (dev->revision >= 0 ||
-            revinfo.revision > virtio_ccw_rev_max(dev)) {
+            revinfo.revision > virtio_ccw_rev_max(dev, vdev)) {
             ret = -ENOSYS;
             break;
         }
         ret = 0;
         dev->revision = revinfo.revision;
         /* Re-evaluate which features the device wants to offer. */
-        dev->host_features =
-            virtio_bus_get_vdev_features_rev(&dev->bus, dev->host_features,
-                                             dev->revision >= 1 ? 1 : 0);
+        dev->host_features = dev->revision >= 1 ?
+            virtio_bus_get_vdev_features(&dev->bus, dev->host_features) :
+            virtio_bus_get_vdev_features_legacy(&dev->bus, dev->host_features);
         break;
     default:
         ret = -ENOSYS;
@@ -758,7 +758,7 @@ static void virtio_sch_disable_cb(SubchDev *sch)
     dev->revision = -1;
     /* Reset the device's features to legacy. */
     dev->host_features =
-        virtio_bus_get_vdev_features_rev(&dev->bus, dev->host_features, 0);
+        virtio_bus_get_vdev_features_legacy(&dev->bus, dev->host_features);
 }
 
 static void virtio_ccw_device_realize(VirtioCcwDevice *dev, Error **errp)
@@ -1545,7 +1545,7 @@ static void virtio_ccw_device_plugged(DeviceState *d)
     virtio_add_feature(&dev->host_features, VIRTIO_F_BAD_FEATURE);
     /* All devices start in legacy mode. */
     dev->host_features =
-        virtio_bus_get_vdev_features_rev(&dev->bus, dev->host_features, 0);
+        virtio_bus_get_vdev_features_legacy(&dev->bus, dev->host_features);
 
     css_generate_sch_crws(sch->cssid, sch->ssid, sch->schid,
                           d->hotplugged, 1);

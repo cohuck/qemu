@@ -635,6 +635,17 @@ static uint64_t virtio_scsi_get_features(VirtIODevice *vdev,
 
     /* Firstly sync all virtio-scsi possible supported features */
     requested_features |= s->host_features;
+    /* virtio_add_feature(&requested_features, VIRTIO_F_VERSION_1); */
+    return requested_features;
+}
+
+static uint64_t virtio_scsi_get_features_legacy(VirtIODevice *vdev,
+                                                uint64_t requested_features)
+{
+    VirtIOSCSI *s = VIRTIO_SCSI(vdev);
+
+    /* Firstly sync all virtio-scsi possible supported features */
+    requested_features |= s->host_features;
     return requested_features;
 }
 
@@ -974,6 +985,7 @@ static void virtio_scsi_class_init(ObjectClass *klass, void *data)
     vdc->unrealize = virtio_scsi_device_unrealize;
     vdc->set_config = virtio_scsi_set_config;
     vdc->get_features = virtio_scsi_get_features;
+    vdc->get_features_legacy = virtio_scsi_get_features_legacy;
     vdc->reset = virtio_scsi_reset;
     hc->plug = virtio_scsi_hotplug;
     hc->unplug = virtio_scsi_hotunplug;

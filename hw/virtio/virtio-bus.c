@@ -97,26 +97,34 @@ size_t virtio_bus_get_vdev_config_len(VirtioBusState *bus)
 }
 
 /* Get the features of the plugged device. */
-uint64_t virtio_bus_get_vdev_features_rev(VirtioBusState *bus,
-                                          uint64_t requested_features,
-                                          unsigned int revision)
+uint64_t virtio_bus_get_vdev_features(VirtioBusState *bus,
+                                      uint64_t requested_features)
 {
     VirtIODevice *vdev = virtio_bus_get_device(bus);
     VirtioDeviceClass *k;
 
     assert(vdev != NULL);
     k = VIRTIO_DEVICE_GET_CLASS(vdev);
-    if (revision > 0 && k->get_features_rev) {
-        return k->get_features_rev(vdev, requested_features, revision);
+    assert((k->get_features != NULL) || (k->get_features_legacy != NULL));
+    if (k->get_features) {
+        return k->get_features(vdev, requested_features);
     }
-    assert(k->get_features != NULL);
-    return k->get_features(vdev, requested_features);
+    /* ensure version_1 is cleared on unsupported devices */
+    virtio_clear_feature(&requested_features, VIRTIO_F_VERSION_1);
+    return k->get_features_legacy(vdev, requested_features);
 }
 
-uint64_t virtio_bus_get_vdev_features(VirtioBusState *bus,
-                                      uint64_t requested_features)
+uint64_t virtio_bus_get_vdev_features_legacy(VirtioBusState *bus,
+                                             uint64_t requested_features)
 {
-    return virtio_bus_get_vdev_features_rev(bus, requested_features, 0);
+    VirtIODevice *vdev = virtio_bus_get_device(bus);
+    VirtioDeviceClass *k;
+
+    assert(vdev != NULL);
+    k = VIRTIO_DEVICE_GET_CLASS(vdev);
+    assert(k->get_features_legacy != NULL);
+    virtio_clear_feature(&requested_features, VIRTIO_F_VERSION_1);
+    return k->get_features_legacy(vdev, requested_features);
 }
 
 /* Get bad features of the plugged device. */

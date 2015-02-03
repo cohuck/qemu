@@ -1132,6 +1132,18 @@ int virtio_set_features(VirtIODevice *vdev, uint64_t val)
     return __virtio_set_features(vdev, val);
 }
 
+bool virtio_version_1_capable(VirtIODevice *vdev, uint64_t host_features)
+{
+    VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
+    uint64_t features;
+
+    if (!k->get_features) {
+        return 0;
+    }
+    features = k->get_features(vdev, host_features);
+    return __virtio_has_feature(features, VIRTIO_F_VERSION_1) ? 1 : 0;
+}
+
 int virtio_load(VirtIODevice *vdev, QEMUFile *f, int version_id)
 {
     int i, ret;

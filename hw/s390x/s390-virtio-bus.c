@@ -139,8 +139,8 @@ static void s390_virtio_device_init(VirtIOS390Device *dev,
 
     bus->dev_offs += dev_len;
 
-    dev->host_features = virtio_bus_get_vdev_features(&dev->bus,
-                                                      dev->host_features);
+    dev->host_features =
+        virtio_bus_get_vdev_features_legacy(&dev->bus, dev->host_features);
     s390_virtio_device_sync(dev);
     s390_virtio_reset_idx(dev);
     if (dev->qdev.hotplugged) {

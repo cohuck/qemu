@@ -97,9 +97,8 @@ typedef struct VirtioDeviceClass {
     DeviceRealize realize;
     DeviceUnrealize unrealize;
     uint64_t (*get_features)(VirtIODevice *vdev, uint64_t requested_features);
-    uint64_t (*get_features_rev)(VirtIODevice *vdev,
-                                 uint64_t requested_features,
-                                 unsigned int revision);
+    uint64_t (*get_features_legacy)(VirtIODevice *vdev,
+                                    uint64_t requested_features);
     uint64_t (*bad_features)(VirtIODevice *vdev);
     void (*set_features)(VirtIODevice *vdev, uint64_t val);
     int (*validate_features)(VirtIODevice *vdev);
@@ -197,6 +196,7 @@ int virtio_set_status(VirtIODevice *vdev, uint8_t val);
 void virtio_reset(void *opaque);
 void virtio_update_irq(VirtIODevice *vdev);
 int virtio_set_features(VirtIODevice *vdev, uint64_t val);
+bool virtio_version_1_capable(VirtIODevice *vdev, uint64_t host_features);
 
 /* Base devices.  */
 typedef struct VirtIOBlkConf VirtIOBlkConf;
