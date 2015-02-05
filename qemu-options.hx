@@ -3115,7 +3115,7 @@ when the shift value is high (how high depends on the host machine).
 ETEXI
 
 DEF("watchdog", HAS_ARG, QEMU_OPTION_watchdog, \
-    "-watchdog i6300esb|ib700\n" \
+    "-watchdog i6300esb|ib700|diag288\n" \
     "                enable virtual hardware watchdog [default=none]\n",
     QEMU_ARCH_ALL)
 STEXI
@@ -3129,7 +3129,9 @@ The @var{model} is the model of hardware watchdog to emulate.  Choices
 for model are: @code{ib700} (iBASE 700) which is a very simple ISA
 watchdog with a single timer, or @code{i6300esb} (Intel 6300ESB I/O
 controller hub) which is a much more featureful PCI-based dual-timer
-watchdog.  Choose a model for which your guest has drivers.
+watchdog. @code{diag288} is a watchdog device only available on s390x
+(for now only supported by KVM). Choose a model for which your guest
+has drivers.
 
 Use @code{-watchdog help} to list available hardware models.  Only one
 watchdog can be enabled for a guest.
