@@ -21,6 +21,17 @@ static WatchdogTimerModel model = {
     .wdt_description = "diag288 device for s390x platform",
 };
 
+static const VMStateDescription vmstate_diag288 = {
+    .name = "vmstate_diag288",
+    .version_id = 0,
+    .minimum_version_id = 0,
+    .fields = (VMStateField[]) {
+        VMSTATE_TIMER_PTR(timer, DIAG288State),
+        VMSTATE_BOOL(enabled, DIAG288State),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static void wdt_diag288_reset(DeviceState *dev)
 {
     DIAG288State *diag288 = DIAG288(dev);
@@ -89,6 +100,7 @@ static void wdt_diag288_class_init(ObjectClass *klass, void *data)
     dc->realize = wdt_diag288_realize;
     dc->unrealize = wdt_diag288_unrealize;
     dc->reset = wdt_diag288_reset;
+    dc->vmsd = &vmstate_diag288;
     set_bit(DEVICE_CATEGORY_MISC, dc->categories);
     diag288->handle_timer = wdt_diag288_handle_timer;
 }
