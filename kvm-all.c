@@ -1542,11 +1542,6 @@ static int kvm_init(MachineState *ms)
     if (ret < 0) {
         fprintf(stderr, "ioctl(KVM_CREATE_VM) failed: %d %s\n", -ret,
                 strerror(-ret));
-
-#ifdef TARGET_S390X
-        fprintf(stderr, "Please add the 'switch_amode' kernel parameter to "
-                        "your host kernel command line\n");
-#endif
         goto err;
     }
 
