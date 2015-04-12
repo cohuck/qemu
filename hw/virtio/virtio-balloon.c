@@ -242,7 +242,8 @@ static void virtio_balloon_receive_stats(VirtIODevice *vdev, VirtQueue *vq)
 {
     VirtIOBalloon *s = VIRTIO_BALLOON(vdev);
     VirtQueueElement *elem = &s->stats_vq_elem;
-    VirtIOBalloonStat stat;
+    VirtIOBalloonStat legacy_stat;
+    VirtIOBalloonStatModern modern_stat;
     size_t offset = 0;
     qemu_timeval tv;
 
@@ -256,14 +257,28 @@ static void virtio_balloon_receive_stats(VirtIODevice *vdev, VirtQueue *vq)
      */
     reset_stats(s);
 
-    while (iov_to_buf(elem->out_sg, elem->out_num, offset, &stat, sizeof(stat))
-           == sizeof(stat)) {
-        uint16_t tag = virtio_tswap16(vdev, stat.tag);
-        uint64_t val = virtio_tswap64(vdev, stat.val);
+    if (virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+        while (iov_to_buf(elem->out_sg, elem->out_num, offset,
+                          &modern_stat, sizeof(modern_stat))
+               == sizeof(modern_stat)) {
+            uint16_t tag = le16_to_cpu(modern_stat.tag);
+            uint64_t val = le64_to_cpu(modern_stat.val);
 
-        offset += sizeof(stat);
-        if (tag < VIRTIO_BALLOON_S_NR)
-            s->stats[tag] = val;
+            offset += sizeof(modern_stat);
+            if (tag < VIRTIO_BALLOON_S_NR)
+                s->stats[tag] = val;
+        }
+    } else {
+        while (iov_to_buf(elem->out_sg, elem->out_num, offset,
+                          &legacy_stat, sizeof(legacy_stat))
+               == sizeof(legacy_stat)) {
+            uint16_t tag = virtio_tswap16(vdev, legacy_stat.tag);
+            uint64_t val = virtio_tswap64(vdev, legacy_stat.val);
+
+            offset += sizeof(legacy_stat);
+            if (tag < VIRTIO_BALLOON_S_NR)
+                s->stats[tag] = val;
+        }
     }
     s->stats_vq_offset = offset;
 
