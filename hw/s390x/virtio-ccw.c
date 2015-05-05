@@ -723,7 +723,7 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
         break;
     case CCW_CMD_SET_VIRTIO_REV:
         len = sizeof(revinfo);
-        if (ccw.count < len || (check_len && ccw.count > len)) {
+        if (ccw.count < len) {
             ret = -EINVAL;
             break;
         }
@@ -731,7 +731,22 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
             ret = -EFAULT;
             break;
         }
-        cpu_physical_memory_read(ccw.cda, &revinfo, len);
+        revinfo.revision =
+            address_space_lduw_be(&address_space_memory, ccw.cda,
+                                  MEMTXATTRS_UNSPECIFIED, NULL);
+        revinfo.length =
+            address_space_lduw_be(&address_space_memory,
+                                  ccw.cda + sizeof(revinfo.revision),
+                                  MEMTXATTRS_UNSPECIFIED, NULL);
+        if (ccw.count < len + revinfo.length ||
+            (check_len && ccw.count > len + revinfo.length)) {
+            ret = -EINVAL;
+            break;
+        }
+        /*
+         * Once we start to support revisions with additional data, we'll
+         * need to fetch it here. Nothing to do for now, though.
+         */
         if (dev->revision >= 0 ||
             revinfo.revision > virtio_ccw_rev_max(dev, vdev)) {
             ret = -ENOSYS;
