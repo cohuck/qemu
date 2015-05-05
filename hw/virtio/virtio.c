@@ -1104,7 +1104,7 @@ void virtio_save(VirtIODevice *vdev, QEMUFile *f)
     vmstate_save_state(f, &vmstate_virtio, vdev, NULL);
 }
 
-static int __virtio_set_features(VirtIODevice *vdev, uint64_t val)
+static int virtio_set_features_nocheck(VirtIODevice *vdev, uint64_t val)
 {
     BusState *qbus = qdev_get_parent_bus(DEVICE(vdev));
     VirtioBusClass *vbusk = VIRTIO_BUS_GET_CLASS(qbus);
@@ -1129,7 +1129,7 @@ int virtio_set_features(VirtIODevice *vdev, uint64_t val)
     if (vdev->status & VIRTIO_CONFIG_S_FEATURES_OK) {
         return -EINVAL;
     }
-    return __virtio_set_features(vdev, val);
+    return virtio_set_features_nocheck(vdev, val);
 }
 
 bool virtio_version_1_capable(VirtIODevice *vdev, uint64_t host_features)
@@ -1181,7 +1181,7 @@ int virtio_load(VirtIODevice *vdev, QEMUFile *f, int version_id)
     //}
     features = (((uint64_t)features_hi) << 32) | features_lo;
 
-    if (__virtio_set_features(vdev, features) < 0) {
+    if (virtio_set_features_nocheck(vdev, features) < 0) {
         supported_features = k->get_features(qbus->parent);
         error_report("Features 0x%"PRIx64" unsupported. Allowed features: 0x%"PRIx64,
                      features, supported_features);
