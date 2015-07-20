@@ -104,7 +104,11 @@ struct VirtioCcwDevice {
 /* The maximum virtio revision we support. */
 static inline int virtio_ccw_rev_max(VirtIODevice *vdev)
 {
-    return 0;
+    if (__virtio_has_feature(vdev->host_features, VIRTIO_BLK_F_SCSI)) {
+        /* We can't offer VERSION_1 if the user configured scsi. */
+        return 0;
+    }
+    return 1;
 }
 
 /* virtual css bus type */

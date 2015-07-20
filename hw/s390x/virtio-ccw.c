@@ -767,6 +767,9 @@ static int virtio_ccw_cb(SubchDev *sch, CCW1 ccw)
         }
         ret = 0;
         dev->revision = revinfo.revision;
+        if (dev->revision >= 1) {
+            virtio_add_feature(&vdev->host_features, VIRTIO_F_VERSION_1);
+        }
         break;
     default:
         ret = -ENOSYS;
@@ -1504,6 +1507,9 @@ static int virtio_ccw_load_config(DeviceState *d, QEMUFile *f)
     dev->routes.adapter.ind_offset = qemu_get_be64(f);
     dev->thinint_isc = qemu_get_byte(f);
     dev->revision = qemu_get_be32(f);
+    if (dev->revision >= 1) {
+        virtio_add_feature(&vdev->host_features, VIRTIO_F_VERSION_1);
+    }
     if (s->thinint_active) {
         return css_register_io_adapter(CSS_IO_ADAPTER_VIRTIO,
                                        dev->thinint_isc, true, false,
