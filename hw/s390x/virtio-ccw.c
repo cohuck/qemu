@@ -31,6 +31,8 @@
 #include "virtio-ccw.h"
 #include "trace.h"
 
+int virtio_ccw_rev_supported = 1;
+
 static QTAILQ_HEAD(, IndAddr) indicator_addresses =
     QTAILQ_HEAD_INITIALIZER(indicator_addresses);
 

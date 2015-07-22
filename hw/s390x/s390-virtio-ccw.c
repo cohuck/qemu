@@ -291,10 +291,21 @@ static void ccw_machine_2_4_class_init(ObjectClass *oc, void *data)
     mc->desc = "VirtIO-ccw based S390 machine v2.4";
 }
 
+static void ccw_machine_compat_2_4(Object *obj)
+{
+    virtio_ccw_rev_supported = 0;
+}
+
+static void ccw_machine_2_4_instance_init(Object *obj)
+{
+    ccw_machine_compat_2_4(obj);
+}
+
 static const TypeInfo ccw_machine_2_4_info = {
     .name          = TYPE_S390_CCW_MACHINE "2.4",
     .parent        = TYPE_S390_CCW_MACHINE,
     .class_init    = ccw_machine_2_4_class_init,
+    .instance_init = ccw_machine_2_4_instance_init,
 };
 
 static void ccw_machine_2_5_class_init(ObjectClass *oc, void *data)
